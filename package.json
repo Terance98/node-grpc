@@ -1,0 +1,24 @@
+{
+  "name": "node-grpc",
+  "version": "1.0.0",
+  "description": "A repository to test out the gRPC implementation with HTTP2",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Terance98/node-grpc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Terance98/node-grpc/issues"
+  },
+  "homepage": "https://github.com/Terance98/node-grpc#readme",
+  "dependencies": {
+    "@grpc/proto-loader": "^0.6.2",
+    "grpc": "^1.24.10"
+  }
+}
