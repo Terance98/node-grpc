@@ -64,5 +64,6 @@ function readTodos(call, callback) {
  */
 function readTodosStream(call, callback) {
   todos.forEach((t) => call.write(t));
+  for (let i = 1; i < 100000; i++) call.write({ id: i });
   call.end();
 }
