@@ -3,12 +3,12 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const path = require("path");
 
-const PROTO_PATH = path.resolve(__dirname, "todo.proto");
+const PROTO_PATH = path.resolve(__dirname, "message.proto");
 const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const yourProto = grpc.loadPackageDefinition(packageDefinition);
 
 const serverPort = 4000;
-const ipAddress = "localhost";
+const ipAddress = "54.210.22.200";
 
 const client = new yourProto.YourService(
   `${ipAddress}:${serverPort}`,
@@ -54,7 +54,7 @@ setInterval(() => {
   messagesToSend.forEach((message) => {
     call.write(message);
   });
-}, 10);
+}, 1);
 
 // Indicate that the client has finished sending messages
 // call.end();

@@ -3,7 +3,7 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const path = require("path");
 
-const PROTO_PATH = path.resolve(__dirname, "todo.proto");
+const PROTO_PATH = path.resolve(__dirname, "message.proto");
 const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const yourProto = grpc.loadPackageDefinition(packageDefinition);
 
