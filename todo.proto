@@ -1,22 +1,15 @@
 syntax = "proto3";
 
-package todoPackage;
-
-service Todo {
-    rpc createTodo(TodoItem) returns (TodoItem);
-    rpc readTodos(voidNoParam) returns (TodoItems);
-    rpc readTodosStream(voidNoParam) returns (stream TodoItem);
-}
 
 // Each schema in protocol buffer is called as a message
 message voidNoParam {}
 
-message TodoItem {
-    // Here 1 is a sequential number which gets incremented for each property which we add to this schema
-    int32 id = 1;
-    string text = 2;
+message YourMessage {
+  // Here 1 is a sequential number which gets incremented for each property which we add to this schema
+  int32 id = 1;
+  string text = 2;
 }
 
-message TodoItems {
-    repeated TodoItem items = 1;
+service YourService {
+  rpc YourStreamingRPC(stream YourMessage) returns (stream YourMessage);
 }
