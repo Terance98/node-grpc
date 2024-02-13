@@ -20,7 +20,7 @@ class GRPCClientStream {
    * Constructor for setting up a GRPC connection to the server.
    * @param {string} ip - The IP address of the GRPC server.
    * @param {number} port - The port number of the GRPC server.
-   * @param {function} #dataHandler - Callback function to handle data received from the server.
+   * @param {function} dataHandler - Callback function to handle data received from the server.
    */
   constructor(ip, port, dataHandler) {
     this.#client = new yourProto.YourService(
