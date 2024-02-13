@@ -173,7 +173,11 @@ async function runIt() {
   const serverPort = 4000;
   const ipAddress = "localhost";
 
-  const grpcClient = new GRPCClientStream(ipAddress, serverPort, onDataCallback);
+  const grpcClient = new GRPCClientStream(
+    ipAddress,
+    serverPort,
+    onDataCallback
+  );
 
   let i = 0;
   setInterval(() => {
