@@ -50,13 +50,13 @@ class GRPCClientStream {
   }
 
   /**
-   * This function is responsible for trying to setup a stream
+   * This function is responsible for trying to create a stream
    * If the stream successfully connects, then its returned
    * If the stream connection fails due to error, then its rejected
-   * On rejection, the parent function again tries to setup and new stream and establish the connection
+   * On rejection, the parent function again tries to create a new stream and establish the connection
    * @returns
    */
-  async #setStreamEventListeners() {
+  async #createStream() {
     return new Promise((resolve, reject) => {
       const stream = this.#client.YourStreamingRPC();
 
@@ -142,7 +142,7 @@ class GRPCClientStream {
    */
   async #connect() {
     try {
-      const stream = await this.#setStreamEventListeners();
+      const stream = await this.#createStream();
 
       stream.on("end", () => {
         this.#connect();
