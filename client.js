@@ -10,6 +10,7 @@ const yourProto = grpc.loadPackageDefinition(packageDefinition);
 class GRPCClientStream {
   #stream;
   #client;
+  #dataHandler;
   #messageQueue = [];
   #isMessageQueueProcessing = false;
   #writtenMessageQueue = [];
@@ -19,7 +20,7 @@ class GRPCClientStream {
    * Constructor for setting up a GRPC connection to the server.
    * @param {string} ip - The IP address of the GRPC server.
    * @param {number} port - The port number of the GRPC server.
-   * @param {function} dataHandler - Callback function to handle data received from the server.
+   * @param {function} #dataHandler - Callback function to handle data received from the server.
    */
   constructor(ip, port, dataHandler) {
     this.#client = new yourProto.YourService(
@@ -27,7 +28,7 @@ class GRPCClientStream {
       grpc.credentials.createInsecure()
     );
 
-    this.dataHandler = dataHandler;
+    this.#dataHandler = dataHandler;
     this.#connect();
   }
 
@@ -149,7 +150,7 @@ class GRPCClientStream {
 
       stream.on("data", (data) => {
         this.#handleAcknowledgment(data);
-        this.dataHandler(data);
+        this.#dataHandler(data);
       });
 
       console.log("Connection Successful!");
@@ -165,14 +166,14 @@ class GRPCClientStream {
 }
 
 async function runIt() {
-  function dataHandler(data) {
+  function onDataCallback(data) {
     console.log("GOT DATA: ", { data });
   }
 
   const serverPort = 4000;
   const ipAddress = "localhost";
 
-  const grpcClient = new GRPCClientStream(ipAddress, serverPort, dataHandler);
+  const grpcClient = new GRPCClientStream(ipAddress, serverPort, onDataCallback);
 
   let i = 0;
   setInterval(() => {
