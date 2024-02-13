@@ -8,54 +8,47 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const yourProto = grpc.loadPackageDefinition(packageDefinition);
 
 const server = new grpc.Server();
-
-let messageCount = 0;
+const messageCount = { count: 0 };
 
 server.addService(yourProto.YourService.service, {
   YourStreamingRPC: yourStreamingRPC,
 });
 
 function yourStreamingRPC(call) {
-  call.on("data", (request) => {
-    // Handle incoming request
-    console.log("Received request:", request);
+  console.log("Client connected. Sending acknowledgment...");
 
-    // Process the request and send a response
+  // Send an acknowledgment immediately upon connection
+  call.write({ text: "CONN_ACK" });
+
+  call.on("data", (request) => {
+    console.log("Server 1 received request:", request);
     const response = {
-      /* Your response message here */
-      text: `Got message: ${messageCount++}`,
+      text: `Server 1 got message: ${messageCount.count++}`,
+      acknowledgeMessageId: request.id,
     };
     call.write(response);
   });
 
   call.on("end", () => {
-    // Client has finished sending messages
     call.end();
   });
 
   call.on("error", (error) => {
-    // Handle errors
-    console.error("Error:", error);
+    console.error("Errorrrrrrr:", error);
   });
 
   call.on("cancelled", () => {
-    // Handle cancellation
     console.log("Client cancelled the stream");
   });
 }
 
-// Dynamically determine the IP address of any available network interface
-const ipAddress = process.env.SERVER_IP;
-// Use a consistent port (e.g., 50051)
-const serverPort = process.env.SERVER_PORT;
+const ipAddress = process.env.SERVER1_IP;
+const serverPort = process.env.SERVER1_PORT;
 
-// Bind to the specified IP address and port
 server.bindAsync(
   `${ipAddress}:${serverPort}`,
   grpc.ServerCredentials.createInsecure(),
   () => {
-    console.log(`Server running on ${ipAddress}:${serverPort}`);
+    console.log(`Server 1 running on ${ipAddress}:${serverPort}`);
   }
 );
-
-// server.start();

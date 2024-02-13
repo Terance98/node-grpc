@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+// Each schema in protocol buffer is called as a message
+message VoidNoParam {}
+
+message YourMessage {
+  // Here 1 is a sequential number which gets incremented for each property added to this schema
+  int32 id = 1;
+  string text = 2;
+
+  oneof messageContent {
+    int32 acknowledgeMessageId = 3; // Add acknowledgment field
+    // Add other fields if needed
+  }
+}
+
+service YourService {
+  rpc YourStreamingRPC(stream YourMessage) returns (stream YourMessage);
+}

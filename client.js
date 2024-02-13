@@ -7,54 +7,178 @@ const PROTO_PATH = path.resolve(__dirname, "message.proto");
 const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const yourProto = grpc.loadPackageDefinition(packageDefinition);
 
-const serverPort = 4000;
-const ipAddress = "54.210.22.200";
+class GRPCClientStream {
+  #stream;
+  #client;
+  #messageQueue = [];
+  #isMessageQueueProcessing = false;
+  #writtenMessageQueue = [];
+  #isConnected = false;
 
-const client = new yourProto.YourService(
-  `${ipAddress}:${serverPort}`,
-  grpc.credentials.createInsecure()
-);
+  /**
+   * Constructor for setting up a GRPC connection to the server.
+   * @param {string} ip - The IP address of the GRPC server.
+   * @param {number} port - The port number of the GRPC server.
+   * @param {function} dataHandler - Callback function to handle data received from the server.
+   */
+  constructor(ip, port, dataHandler) {
+    this.#client = new yourProto.YourService(
+      `${ip}:${port}`,
+      grpc.credentials.createInsecure()
+    );
 
-const call = client.YourStreamingRPC();
+    this.dataHandler = dataHandler;
+    this.#connect();
+  }
 
-call.on("data", (response) => {
-  // Handle incoming response from the server
-  console.log("Received response:", response);
-});
+  async #handleAcknowledgment(data) {
+    const messageId = data.acknowledgeMessageId;
+    console.log(`Acknowledged message: ${messageId}`);
 
-call.on("end", () => {
-  // Server has finished sending messages
-  console.log("Server finished streaming");
-});
+    // Find the index of the message with the specified messageId
+    const indexToRemove = this.#writtenMessageQueue.findIndex(
+      (message) => message.id === messageId
+    );
 
-call.on("error", (error) => {
-  // Handle errors
-  console.error("Error:", error);
-});
+    // Remove the acknowledged message from the array if found
+    if (indexToRemove !== -1) {
+      this.#writtenMessageQueue.splice(indexToRemove, 1);
+    } else {
+      console.warn(`Message with ID: ${messageId} not found in the array.`);
+    }
+  }
 
-call.on("status", (status) => {
-  // Handle status updates
-  console.log("Status:", status);
-});
+  /**
+   * This function is responsible for trying to setup a stream
+   * If the stream successfully connects, then its returned
+   * If the stream connection fails due to error, then its rejected
+   * On rejection, the parent function again tries to setup and new stream and establish the connection
+   * @returns
+   */
+  async #setStreamEventListeners() {
+    return new Promise((resolve, reject) => {
+      const stream = this.#client.YourStreamingRPC();
 
-// Send streaming messages to the server
-const messagesToSend = [
-  {
-    /* Your request message 1 */
-    text: "Hello there!",
-  },
-  {
-    /* Your request message 2 */
-    text: "Hello there!",
-  },
-  // Add more messages as needed
-];
+      stream.on("end", () => {
+        this.#messageQueue.push(...this.#writtenMessageQueue);
+        this.#writtenMessageQueue = [];
+        this.#isMessageQueueProcessing = false;
+        this.#isConnected = false;
 
-setInterval(() => {
-  messagesToSend.forEach((message) => {
-    call.write(message);
-  });
-}, 1);
+        reject("Failed to establish connection with the server!");
+      });
 
-// Indicate that the client has finished sending messages
-// call.end();
+      stream.on("error", (err) => {
+        reject("Connection to server errored!");
+      });
+
+      stream.on("data", (data) => {
+        if (data.text === "CONN_ACK") {
+          resolve(stream);
+        }
+      });
+
+      stream.on("close", (code, message) => {
+        reject("Connection closed by the server!");
+      });
+    });
+  }
+
+  /**
+   * This is the function that is exposed from the class
+   * This function is responsible for pushing a new message to the message queue
+   * And then triggering writing of the #messageQueue within message queue to the server
+   * @param {*} message
+   * @returns
+   */
+  writeData(message) {
+    // Push the message to the message queue
+    this.#messageQueue.push(message);
+
+    // If the #client is not connected to the server, then return here so that we don't attempt writing
+    if (!this.#isConnected) return;
+
+    // Start writing #messageQueue to the server side
+    this.#writeMessages();
+  }
+
+  /**
+   * This function is responsible for initiating the message streaming to the backend
+   * @returns
+   */
+  #writeMessages() {
+    if (!this.#stream || this.#isMessageQueueProcessing) return;
+
+    this.#isMessageQueueProcessing = true;
+    this.#writeMessage();
+    this.#isMessageQueueProcessing = false;
+  }
+
+  /**
+   * This function is responsible for recursively writing a message to the server from the #messageQueue queue
+   * Once the message is written, its pushed to the #writtenMessageQueue queue from where the #messageQueue are acknowledged later
+   * @returns
+   */
+  #writeMessage() {
+    const message = this.#messageQueue.shift();
+
+    // Recursion ends when there are no more #messageQueue
+    if (!message) return;
+
+    this.#stream.write(message);
+
+    this.#writtenMessageQueue.push(message);
+
+    this.#writeMessage();
+  }
+
+  /**
+   * This function is responsible for recursively trying to #connect to the server
+   * Once the connection is established, it can start streaming #messageQueue to the server using its writeData function
+   * The stream is then setup with two event listeners,
+   * If the connection ends again, then the client recursively tries again to connect to the server
+   * When we receive data(primarily acknowledgement of the data sent to the server), we process it as required
+   */
+  async #connect() {
+    try {
+      const stream = await this.#setStreamEventListeners();
+
+      stream.on("end", () => {
+        this.#connect();
+      });
+
+      stream.on("data", (data) => {
+        this.#handleAcknowledgment(data);
+        this.dataHandler(data);
+      });
+
+      console.log("Connection Successful!");
+
+      this.#stream = stream;
+      this.#isConnected = true;
+      this.#writeMessages();
+    } catch (err) {
+      console.log("Connection Failed!", { err });
+      setTimeout(() => this.#connect(), 2500);
+    }
+  }
+}
+
+async function runIt() {
+  function dataHandler(data) {
+    console.log("GOT DATA: ", { data });
+  }
+
+  const serverPort = 4000;
+  const ipAddress = "localhost";
+
+  const grpcClient = new GRPCClientStream(ipAddress, serverPort, dataHandler);
+
+  let i = 0;
+  setInterval(() => {
+    const message = "Hello" + i++;
+    grpcClient.writeData({ text: message, id: i });
+  }, 1000);
+}
+
+runIt();
