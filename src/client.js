@@ -25,7 +25,11 @@ class GRPCClientStream {
 
     GRPCClientStream.#validateAttributes({ protoName, uniqueIdPath, rpcName });
 
-    const protoPath = path.resolve(__dirname, `${protoName}.proto`);
+    const protoPath = path.resolve(
+      __dirname,
+      "protocol-buffers",
+      `${protoName}.proto`
+    );
     const packageDefinition = protoLoader.loadSync(protoPath);
     const yourProto = grpc.loadPackageDefinition(packageDefinition);
 

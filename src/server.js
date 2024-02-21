@@ -13,7 +13,11 @@ class GRPCServerStream extends EventEmitter {
 
     GRPCServerStream.#validateAttributes({ protoName, uniqueIdPath, rpcName });
 
-    const protoPath = path.resolve(__dirname, `${protoName}.proto`);
+    const protoPath = path.resolve(
+      __dirname,
+      "protocol-buffers",
+      `${protoName}.proto`
+    );
 
     if (!GRPCServerStream.#server) {
       GRPCServerStream.#server = new grpc.Server();
