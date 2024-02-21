@@ -3,18 +3,15 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const path = require("path");
 
-const PROTO_PATH = path.resolve(__dirname, "message.proto");
-const packageDefinition = protoLoader.loadSync(PROTO_PATH);
-const yourProto = grpc.loadPackageDefinition(packageDefinition);
-
 class GRPCClientStream {
   #stream;
   #client;
-  #dataHandler;
   #messageQueue = [];
   #isMessageQueueProcessing = false;
   #writtenMessageQueue = [];
   #isConnected = false;
+  #rpcName;
+  #uniqueIdPath;
 
   /**
    * Constructor for setting up a GRPC connection to the server.
@@ -22,23 +19,70 @@ class GRPCClientStream {
    * @param {number} port - The port number of the GRPC server.
    * @param {function} dataHandler - Callback function to handle data received from the server.
    */
-  constructor(ip, port, dataHandler) {
-    this.#client = new yourProto.YourService(
-      `${ip}:${port}`,
+  constructor(protoName, uniqueIdPath, rpcName) {
+    const ipAddress = process.env.IP_ADDRESS;
+    const port = process.env.PORT;
+
+    GRPCClientStream.#validateAttributes({ protoName, uniqueIdPath, rpcName });
+
+    const protoPath = path.resolve(__dirname, `${protoName}.proto`);
+    const packageDefinition = protoLoader.loadSync(protoPath);
+    const yourProto = grpc.loadPackageDefinition(packageDefinition);
+
+    this.#client = new yourProto.StreamService(
+      `${ipAddress}:${port}`,
       grpc.credentials.createInsecure()
     );
 
-    this.#dataHandler = dataHandler;
+    this.#uniqueIdPath = uniqueIdPath;
+    this.#rpcName = rpcName;
+
     this.#connect();
   }
 
-  async #handleAcknowledgment(data) {
-    const messageId = data.acknowledgeMessageId;
+  static #validateAttributes({ protoName, uniqueIdPath, rpcName }) {
+    if (/[^a-zA-Z0-9_]/.test(protoName)) {
+      throw new Error(
+        "Invalid value for protoName! Cannot include special characters"
+      );
+    }
+
+    if (/[^a-zA-Z.]/.test(uniqueIdPath)) {
+      throw new Error(
+        "Invalid value for uniqueIdPath! Only alphabets & '.'allowed!"
+      );
+    }
+
+    if (/[^a-zA-Z0-9_]/.test(rpcName)) {
+      throw new Error(
+        "Invalid value for rpcName! Cannot include special characters"
+      );
+    }
+  }
+
+  #getNestedAttribute(obj, key) {
+    const keys = key.split(".");
+    let result = obj;
+
+    for (const k of keys) {
+      if (result && typeof result === "object" && k in result) {
+        result = result[k];
+      } else {
+        return null;
+      }
+    }
+
+    return result;
+  }
+
+  async #handleAcknowledgment({ messageAck }) {
+    const messageId = messageAck.messageId;
     console.log(`Acknowledged message: ${messageId}`);
 
     // Find the index of the message with the specified messageId
     const indexToRemove = this.#writtenMessageQueue.findIndex(
-      (message) => message.id === messageId
+      (message) =>
+        this.#getNestedAttribute(message, this.#uniqueIdPath) == messageId
     );
 
     // Remove the acknowledged message from the array if found
@@ -58,7 +102,7 @@ class GRPCClientStream {
    */
   async #createStream() {
     return new Promise((resolve, reject) => {
-      const stream = this.#client.YourStreamingRPC();
+      const stream = this.#client[this.#rpcName]();
 
       stream.on("end", () => {
         this.#messageQueue.push(...this.#writtenMessageQueue);
@@ -74,8 +118,10 @@ class GRPCClientStream {
       });
 
       stream.on("data", (data) => {
-        if (data.text === "CONN_ACK") {
+        if (data?.connectionAck?.connected) {
           resolve(stream);
+        } else {
+          reject("Failed to acknowledge connection!");
         }
       });
 
@@ -97,7 +143,10 @@ class GRPCClientStream {
     this.#messageQueue.push(message);
 
     // If the #client is not connected to the server, then return here so that we don't attempt writing
-    if (!this.#isConnected) return;
+    if (!this.#isConnected) {
+      console.log("Connection not present, caching & skipping message write!");
+      return;
+    }
 
     // Start writing #messageQueue to the server side
     this.#writeMessages();
@@ -127,7 +176,6 @@ class GRPCClientStream {
     if (!message) return;
 
     this.#stream.write(message);
-
     this.#writtenMessageQueue.push(message);
 
     this.#writeMessage();
@@ -150,7 +198,6 @@ class GRPCClientStream {
 
       stream.on("data", (data) => {
         this.#handleAcknowledgment(data);
-        this.#dataHandler(data);
       });
 
       console.log("Connection Successful!");
@@ -166,23 +213,51 @@ class GRPCClientStream {
 }
 
 async function runIt() {
-  function onDataCallback(data) {
-    console.log("GOT DATA: ", { data });
-  }
+  const grpcClient1 = new GRPCClientStream(
+    "message",
+    "message.id",
+    "MessageStreamingRPC"
+  );
+  const grpcClient2 = new GRPCClientStream(
+    "task",
+    "task.id",
+    "TaskStreamingRPC"
+  );
 
-  const serverPort = 4000;
-  const ipAddress = "localhost";
-
-  const grpcClient = new GRPCClientStream(
-    ipAddress,
-    serverPort,
-    onDataCallback
+  const grpcClient3 = new GRPCClientStream(
+    "event",
+    "event.id",
+    "EventStreamingRPC"
   );
 
   let i = 0;
   setInterval(() => {
     const message = "Hello" + i++;
-    grpcClient.writeData({ text: message, id: i });
+
+    const data1 = {
+      message: {
+        text: "yoyo!",
+        id: i,
+      },
+    };
+
+    const data2 = {
+      task: {
+        id: i,
+        taskName: message,
+      },
+    };
+
+    const data3 = {
+      event: {
+        id: i,
+        eventName: "new event",
+      },
+    };
+
+    grpcClient1.writeData(data1);
+    grpcClient2.writeData(data2);
+    grpcClient3.writeData(data3);
   }, 1000);
 }
 

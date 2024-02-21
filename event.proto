@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-message Message {
+message Event {
   int32 id = 1;
-  string text = 2;
+  string eventName = 2;
 }
 
 message ConnectionAcknowledge {
@@ -15,12 +15,12 @@ message MessageAck {
 
 message StreamMessage {
   oneof messageType {
-    Message message = 1;
+    Event event = 1;
     ConnectionAcknowledge connectionAck = 2;
     MessageAck messageAck = 3;
   }
 }
 
 service StreamService {
-  rpc MessageStreamingRPC(stream StreamMessage) returns (stream StreamMessage);
+  rpc EventStreamingRPC(stream StreamMessage) returns (stream StreamMessage);
 }

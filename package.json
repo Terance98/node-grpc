@@ -20,6 +20,8 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.6.2",
-    "dotenv": "^16.4.2"
+    "dotenv": "^16.4.2",
+    "g": "^2.0.1",
+    "nodemon": "^3.0.3"
   }
 }
