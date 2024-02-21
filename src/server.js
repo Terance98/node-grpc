@@ -1,8 +1,8 @@
-require("dotenv").config();
+const path = require("path");
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const EventEmitter = require("events");
-const path = require("path");
+require("dotenv").config();
 
 class GRPCServerStream extends EventEmitter {
   static #server;
@@ -55,15 +55,15 @@ class GRPCServerStream extends EventEmitter {
   }
 
   static #startServer() {
-    const ipAddress = process.env.IP_ADDRESS;
-    const serverPort = process.env.PORT;
+    const ipAddress = process.env.GRPC_SERVER_IP;
+    const port = process.env.GRPC_SERVER_PORT;
 
     if (!GRPCServerStream.#server.bound) {
       GRPCServerStream.#server.bindAsync(
-        `${ipAddress}:${serverPort}`,
+        `${ipAddress}:${port}`,
         grpc.ServerCredentials.createInsecure(),
         () => {
-          console.log(`Server running on ${ipAddress}:${serverPort}`);
+          console.log(`Server running on ${ipAddress}:${port}`);
           GRPCServerStream.#server;
         }
       );
@@ -85,12 +85,12 @@ class GRPCServerStream extends EventEmitter {
 
       return result;
     } catch (err) {
-      console.log("Error in get nested attribute!", { obj, key });
+      console.log("GRPC Error: Error in get nested attribute!", { obj, key });
     }
   }
 
   #streamingRPC(stream) {
-    console.log("Client connected! Sending acknowledgment...");
+    console.log("GRPC client connected! Sending acknowledgment...");
     // Send an acknowledgment immediately upon connection
     stream.write({ connectionAck: { connected: true } });
 
@@ -106,7 +106,7 @@ class GRPCServerStream extends EventEmitter {
         // Send a message acknowledge message
         stream.write({ messageAck: { messageId } });
       } catch (err) {
-        console.log("caught error");
+        console.log("GRPC Error: ", { err });
       }
     });
 
@@ -115,11 +115,11 @@ class GRPCServerStream extends EventEmitter {
     });
 
     stream.on("error", (error) => {
-      console.error("Error:", error);
+      console.error("GRPC Error:", error);
     });
 
     stream.on("cancelled", () => {
-      console.log("Client cancelled the stream");
+      console.log("GRPC Error: Client cancelled the stream");
     });
   }
 }

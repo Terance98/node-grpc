@@ -20,8 +20,8 @@ class GRPCClientStream {
    * @param {function} dataHandler - Callback function to handle data received from the server.
    */
   constructor(protoName, uniqueIdPath, rpcName) {
-    const ipAddress = process.env.IP_ADDRESS;
-    const port = process.env.PORT;
+    const ipAddress = process.env.GRPC_SERVER_IP;
+    const port = process.env.GRPC_SERVER_PORT;
 
     GRPCClientStream.#validateAttributes({ protoName, uniqueIdPath, rpcName });
 
@@ -81,7 +81,6 @@ class GRPCClientStream {
 
   async #handleAcknowledgment({ messageAck }) {
     const messageId = messageAck.messageId;
-    console.log(`Acknowledged message: ${messageId}`);
 
     // Find the index of the message with the specified messageId
     const indexToRemove = this.#writtenMessageQueue.findIndex(
@@ -93,7 +92,9 @@ class GRPCClientStream {
     if (indexToRemove !== -1) {
       this.#writtenMessageQueue.splice(indexToRemove, 1);
     } else {
-      console.warn(`Message with ID: ${messageId} not found in the array.`);
+      console.warn(
+        `GRPC Error: Message with ID: ${messageId} not found in the array.`
+      );
     }
   }
 
@@ -114,23 +115,23 @@ class GRPCClientStream {
         this.#isMessageQueueProcessing = false;
         this.#isConnected = false;
 
-        reject("Failed to establish connection with the server!");
+        reject("GRPC Error: Failed to establish connection with the server!");
       });
 
       stream.on("error", (err) => {
-        reject("Connection to server errored!");
+        reject("GRPC Error: Connection to server errored!");
       });
 
       stream.on("data", (data) => {
         if (data?.connectionAck?.connected) {
           resolve(stream);
         } else {
-          reject("Failed to acknowledge connection!");
+          reject("GRPC Error: Failed to acknowledge connection!");
         }
       });
 
       stream.on("close", (code, message) => {
-        reject("Connection closed by the server!");
+        reject("GRPC Error: Connection closed by the server!");
       });
     });
   }
@@ -204,13 +205,13 @@ class GRPCClientStream {
         this.#handleAcknowledgment(data);
       });
 
-      console.log("Connection Successful!");
+      console.log("Successfully connected to GRPC server!");
 
       this.#stream = stream;
       this.#isConnected = true;
       this.#writeMessages();
     } catch (err) {
-      console.log("Connection Failed!", { err });
+      console.log("Failed to connect to GRPC server!", { err });
       setTimeout(() => this.#connect(), 2500);
     }
   }
